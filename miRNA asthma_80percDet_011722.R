@@ -28,6 +28,8 @@ library(lmtest)
 library(sandwich)
 # remotes::install_github('jorvlan/raincloudplots')
 library(raincloudplots)
+library(corrplot)
+library(ggthemes)
 ```
 
 ## QC and normalization
@@ -302,6 +304,9 @@ miRNAcomb$matopy = as.factor(miRNAcomb$matopy)
 miRNAcomb$matopynow = as.factor(miRNAcomb$matopynow)
 miRNAcomb$masth3 = as.factor(miRNAcomb$masth3)
 miRNAcomb$matop3 = as.factor(miRNAcomb$matop3)
+
+# postpartum week of breastmilk collection
+miRNAcomb$wk_breastmilk = miRNAcomb$chage_breastmilk * 52
 ```
 
 
@@ -392,7 +397,6 @@ dfRlmUnadj = function(dfMIRNA, var, NmiRNAs){
 	dfMod$miRNA = colnames(dfMIRNA[c(1:NmiRNAs)])
 	for (i in 1:NmiRNAs){
 		set.seed(1234)
-		rlm.fit = rlm(dfMIRNA[,i] ~ dfMIRNA[[var]], method = 'M', maxit = 40)
 		test = coeftest(rlm.fit, vcovHC(rlm.fit, type="HC0"))
 		dfMod[i,2] = test[3,1]
 		dfMod[i,3] = confint(test)[3,1]
@@ -415,7 +419,7 @@ dfRlmAdjChage = function(dfMIRNA, var, NmiRNAs){
 	dfMod$miRNA = colnames(dfMIRNA[c(1:NmiRNAs)])
 	for (i in 1:NmiRNAs){
 		set.seed(1234)
-		rlm.fit = rlm(dfMIRNA[,i] ~ dfMIRNA[[var]] + dfMIRNA[['childsex']] + dfMIRNA[['momrace3']] + dfMIRNA[['edu2']] + dfMIRNA[['chage_breastmilk']], method = 'M', maxit = 60)
+		rlm.fit = rlm(dfMIRNA[,i] ~ dfMIRNA[[var]] + dfMIRNA[['childsex']] + dfMIRNA[['momrace3']] + dfMIRNA[['edu2']] + dfMIRNA[['wk_breastmilk']], method = 'M', maxit = 60)
 		test = coeftest(rlm.fit, vcovHC(rlm.fit, type="HC0"))
 		dfMod[i,2] = test[3,1]
 		dfMod[i,3] = confint(test)[3,1]
@@ -626,12 +630,84 @@ asthVol = ggplot(asthAdj, aes(x = B_preg, y = logp_preg)) + geom_point(size = 1.
 asthVol 
 # quartz.save(file = '/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/volplotAsthmaPreg.pdf', type = 'pdf', dpi = 300)
 # quartz.save(file = '/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/volplotAsthmaPreg.png', type = 'png', dpi = 300)
-
 ```
 
 ```{r, echo = F, out.width = '50%', echo = F}
 knitr::include_graphics("/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/volplotAsthmaPreg.png")
 ```
+
+```{r, warning=FALSE,message=FALSE, eval = F}
+# correlation among significant micorRNAs
+miRNAasthSig = miRNAcomb[,c(sigAsthAdj_preg$miRNA)]
+miRBaseSig = miRBase[miRBase$miRNA %in% colnames(miRNAasthSig),]
+rownames(miRBaseSig) = miRBaseSig$miRNA
+miRBaseSig = miRBaseSig[colnames(miRNAasthSig),]
+
+colnames(miRNAasthSig) = miRBaseSig$miRBaseID
+
+cor = corr.test(as.matrix(miRNAasthSig), method = 'spearman')
+ord <- corrMatOrder(cor$r, order = 'hclust')
+corOrd = cor$r[ord, ord]
+corOrd_p = cor$p[ord, ord]
+corOrd[corOrd_p > 0.05] = 0
+
+colCor = colorRampPalette((c('#003262', '#3b7ea1', '#ffffff', '#fdb515', '#D9661F')))
+
+corrplot(corOrd, tl.cex = 1, tl.col = 'black', shade.lwd = 0, method = 'color', type = 'lower', diag = F, col = colCor(50))
+
+# quartz.save(file = '/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/asthSigCorPlot.pdf', type = 'pdf', dpi = 300)
+# quartz.save(file = '/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/asthSigCorPlot.png', type = 'png', dpi = 300)
+```
+
+```{r, echo = F, out.width = '50%', echo = F}
+knitr::include_graphics("/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/asthSigCorPlot.png")
+```
+
+```{r, warning=FALSE,message=FALSE, eval = F}
+# PC 12 loadings
+pca$rotation[sigAsthAdj_preg$miRNA,12]                                                                                                                                                                                                                                                          
+#   hsa.miR.191_002299   hsa.miR.200a_000502 hsa.miR.324.5p_000539   hsa.miR.29a._002447    hsa.miR.331_000545 hsa.miR.30a.3p_000416   hsa.miR.1290_002863   hsa.miR.106b_000442   hsa.miR.148b_000471 
+#          0.029751596          -0.013453514          -0.017758589           0.036678770           0.003877220          -0.017390002          -0.304990476           0.004207857           0.039415856
+```
+
+```{r, warning=FALSE,message=FALSE, eval = F}
+# kegg plot
+kegg = read.csv('/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/diana_asthma_microRNAs_pathwayUnion.csv')
+kegg = kegg[order(kegg$X.genes),]
+kegg$neglogp = -log(kegg$p.value, 10)
+kegg$neglogp[kegg$neglogp == Inf] = 10
+kegg$KEGG.pathway[kegg$KEGG.pathway == 'ECM-receptor interaction'] = 'ECM-receptor interaction*'
+kegg$KEGG.pathway[kegg$KEGG.pathway == 'Prion diseases'] = 'Prion diseases*'
+kegg = kegg[order(kegg$X.genes),]
+kegg$KEGG.pathway = factor(kegg$KEGG.pathway, levels = c(kegg$KEGG.pathway))
+
+keggplot = ggplot(kegg, aes(y = KEGG.pathway, x = X.genes)) + geom_segment(x = 0, y = kegg$KEGG.pathway, xend = kegg$X.genes, yend = kegg$KEGG.pathway) + geom_point(aes(fill=p.value), colour="black",pch=21, size=4) + theme_minimal() + 
+  labs(x = 'Number of genes', y = 'KEGG pathway') + scale_fill_continuous(name = expression(~italic('p')~'-value')) + theme(legend.position = 'bottom') + theme(plot.margin = margin(t = 5, r = -10, b = 5, l = 5, unit = "pt")) + scale_x_continuous(lim = c(0,90))
+
+
+keggmiRNAs = read.csv('/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/diana_asthma_microRNAs_pathwayUnion_microRNAs.csv')
+keggmiRNAs = data.frame(pathway = keggmiRNAs$KEGG.pathway, miRNA = rep(colnames(keggmiRNAs)[-1], each = nrow(keggmiRNAs)), indvar = c(keggmiRNAs[,2], keggmiRNAs[,3], keggmiRNAs[,4], keggmiRNAs[,5], keggmiRNAs[,6], keggmiRNAs[,7], keggmiRNAs[,8], keggmiRNAs[,9], keggmiRNAs[,10]))
+keggmiRNAs$pathway[keggmiRNAs$pathway == 'ECM-receptor interaction'] = 'ECM-receptor interaction*'
+keggmiRNAs$pathway[keggmiRNAs$pathway == 'Prion diseases'] = 'Prion diseases*'
+keggmiRNAs$pathway = factor(keggmiRNAs$pathway, levels = c(kegg$KEGG.pathway))
+keggmiRNAs$indvar[keggmiRNAs$indvar == 1] = "#003262"
+
+# keggmiRNAplot = ggplot(keggmiRNAs, aes(miRNA, pathway)) + geom_tile(aes(fill = factor(indvar)), colour = "white", size = 3) + theme_minimal() + scale_fill_manual(values = c('white', '#003262')) + theme(legend.position = "none") + 
+#  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + labs(x = '', y = '') + theme(axis.text.y=element_blank()) + theme(plot.margin = margin(t = 5, r = 5, b = 17, l = 5, unit = "pt"))
+
+keggmiRNAplot2 = ggplot(keggmiRNAs, aes(miRNA, pathway)) + geom_point(color = keggmiRNAs$indvar, size = 5, shape = 15) + theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + labs(x = '', y = '') + theme(axis.text.y=element_blank()) + theme(plot.margin = margin(t = 5.1, r = 5, b = 16.2, l = 0, unit = "pt"))
+
+grid.arrange(keggplot, keggmiRNAplot2, ncol = 2, widths = c(2,1))
+
+# quartz.save(file = '/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/asthKeggPlot.pdf', type = 'pdf', dpi = 300)
+# quartz.save(file = '/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/asthKeggPlot.png', type = 'png', dpi = 300)
+```
+
+```{r, echo = F, out.width = '100%', echo = F}
+knitr::include_graphics("/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/asthKeggPlot.png")
+```
+
 
 #### Inactive
 ```{r, echo = F}
@@ -843,10 +919,108 @@ ggplot(atopAdj, aes(x = B_inact, y = logp_inact)) + geom_point(size = 1.3, alpha
 knitr::include_graphics("/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/volplotAtopInact.png")
 ```
 
+## Sensitivity analyses
+### Asthma, excluding samples collected > 12 weeks postpartum
+```{r, eval = F}
+miRNAcomb_lt12 = miRNAcomb[miRNAcomb$wk_breastmilk <= 12,]
 
+asthAdj_lt12 = dfRlmAdjChage(miRNAcomb_lt12[,-c(1:3)], 'masth3', 130)
 
+# Active during pregnancy vs. never
+table(asthAdj_lt12$p_preg < 0.05 & abs(asthAdj_lt12$B_preg) > 0.2)
+# FALSE  TRUE 
+  # 116    14 
 
+table(asthAdj_lt12$p_FDR_preg < 0.2)
+# FALSE 
+  # 130 
 
+table(asthAdj_lt12$p_FDR_preg < 0.1)
+# FALSE 
+# 130 
+ 
+table(asthAdj_lt12$p_FDR_preg < 0.05)
+# FALSE 
+# 130 
+
+# Inactive vs. never
+table(asthAdj_lt12$p_inact < 0.05 & abs(asthAdj_lt12$B_inact) > 0.2)
+# FALSE  TRUE 
+  # 98   32 
+
+table(asthAdj_lt12$p_FDR_inact < 0.2)
+# FALSE  TRUE 
+  # 98    32 
+  
+table(asthAdj_lt12$p_FDR_inact < 0.1)
+# FALSE  TRUE 
+  # 107    23
+ 
+table(asthAdj_lt12$p_FDR_inact < 0.05)
+# FALSE  TRUE 
+  # 115    15 
+
+# correcting microRNA names
+asthAdj_lt12 = merge(asthAdj_lt12, miRBase[,c(5,3, 4)], by = 'miRNA')
+
+sigAsthAdj_lt12_preg = asthAdj_lt12[asthAdj_lt12$p_preg <0.05, ]
+sigAsthAdj_lt12_preg = sigAsthAdj_lt12_preg[order(sigAsthAdj_lt12_preg$p_preg),]
+sigAsthAdj_lt12_inact = asthAdj_lt12[asthAdj_lt12$p_inact <0.05, ]
+sigAsthAdj_lt12_inact = sigAsthAdj_lt12_inact[order(sigAsthAdj_lt12_inact$p_inact),]
+
+# saving results
+write.csv(asthAdj_lt12, file = '/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/asthmaAdj_lt12.csv')
+```
+
+### Atopy, excluding samples collected > 12 weeks postpartum
+```{r, eval = F}
+atopAdj_lt12 = dfRlmAdjChage(miRNAcomb_lt12[,-c(1:3)], 'matop3', 130)
+
+# Active during pregnancy vs. never
+table(atopAdj_lt12$p_preg < 0.05 & abs(atopAdj_lt12$B_preg) > 0.2)
+# FALSE  TRUE 
+  # 128     2 
+
+table(atopAdj_lt12$p_FDR_preg < 0.2)
+# FALSE 
+  # 130 
+
+table(atopAdj_lt12$p_FDR_preg < 0.1)
+# FALSE 
+# 130 
+ 
+table(atopAdj_lt12$p_FDR_preg < 0.05)
+# FALSE 
+# 130 
+
+# Inactive vs. never
+table(atopAdj_lt12$p_inact < 0.05 & abs(atopAdj_lt12$B_inact) > 0.2)
+# FALSE  TRUE 
+  # 120	 10
+
+table(atopAdj_lt12$p_FDR_inact < 0.2)
+# FALSE  TRUE 
+  # 127     3 
+  
+table(atopAdj_lt12$p_FDR_inact < 0.1)
+# FALSE 
+# 130 
+ 
+table(atopAdj_lt12$p_FDR_inact < 0.05)
+# FALSE 
+# 130 
+
+# correcting microRNA names
+atopAdj_lt12 = merge(atopAdj_lt12, miRBase[,c(5,3, 4)], by = 'miRNA')
+
+sigAtopAdj_lt12_preg = atopAdj_lt12[atopAdj_lt12$p_preg <0.05, ]
+sigAtopAdj_lt12_preg = sigAtopAdj_lt12_preg[order(sigAtopAdj_lt12_preg$p_preg),]
+sigAtopAdj_lt12_inact = atopAdj_lt12[atopAdj_lt12$p_inact <0.05, ]
+sigAtopAdj_lt12_inact = sigAtopAdj_lt12_inact[order(sigAtopAdj_lt12_inact$p_inact),]
+
+# saving results
+write.csv(atopAdj_lt12, file = '/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/atopyAdj_lt12.csv')
+```
 
 
 
