@@ -135,7 +135,7 @@ for (i in 1:nrow(df_nDet)){
 }
 
 # correcting microRNA names
-miRBase = read.csv('/Users/annebozack/Documents/Lee/transfer/PRISM/breastMilkEVmiRNA/lab methods/miRBaseIDs.csv', colClasses = c(rep("character",4)))
+miRBase = read.csv('/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/miRBaseIDs.csv', colClasses = c(rep("character",4)))
 
 miRBase$miRNA = paste0(miRBase$AssayName, '_', miRBase$AssayID)
 miRBase$miRNA = str_replace_all(miRBase$miRNA, '[-#]', '.')
@@ -281,6 +281,15 @@ miRNAcomb$lowRNA = factor(miRNAcomb$lowRNA)
 # removing participant with missing maternal astham/atopy data
 miRNAcomb = miRNAcomb[miRNAcomb$Sample.Name != 7051401,]
 
+# adding variable for number of microRNAs detected per sample
+miRNAwide_nas = read.csv('/Users/annebozack/Documents/Lee/miRNA asthma/PRISM_Breast Milk_EV_miRNA_QCed_wide_20200218.csv')[,-1]
+miRNAwide_nas$nDet = NA
+for (i in 1:nrow(miRNAwide_nas)){
+	miRNAwide_nas$nDet[i] = sum(is.na(miRNAwide_nas[i,c(2:550)]))
+}
+
+miRNAcomb = merge(miRNAcomb, miRNAwide_nas[,c(1,552)], by = 'Sample.Name')
+
 # Saving normalized neg Dcq values and pheno data
 write.csv(miRNAcomb, '/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/miRNA_normAllAfter35replace_pheno_gt80perc_asthma.csv')
 ```
@@ -307,6 +316,51 @@ miRNAcomb$matop3 = as.factor(miRNAcomb$matop3)
 
 # postpartum week of breastmilk collection
 miRNAcomb$wk_breastmilk = miRNAcomb$chage_breastmilk * 52
+
+# association between asthma/atopy and number of microRNAs detected
+summary(lm(nDet ~ masth3, data = miRNAcomb))
+# Coefficients:
+#             Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)  338.154      8.967  37.711   <2e-16 ***
+# masth31       -1.404     33.551  -0.042    0.967    
+# masth32        5.568     17.683   0.315    0.754    
+
+summary(lm(nDet ~ matop3, data = miRNAcomb))
+# Coefficients:
+#            Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)  345.861     10.682  32.379   <2e-16 ***
+# matop31      -34.461     30.587  -1.127    0.264    
+# matop32       -9.194     15.446  -0.595    0.554 
+
+kruskal.test(nDet ~ masth3, data = miRNAcomb)
+# Kruskal-Wallis chi-squared = 0.4153, df = 2, p-value = 0.8125
+
+kruskal.test(nDet ~ matop3, data = miRNAcomb)
+# Kruskal-Wallis chi-squared = 2.9517, df = 2, p-value = 0.2286
+
+summary(lm(nDet ~ masth3 + childsex + momrace3 + edu2 + wk_breastmilk, data = miRNAcomb))
+# Coefficients:
+#               Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)    295.842     35.102   8.428 4.54e-12 ***
+# masth31         11.073     34.003   0.326    0.746    
+# masth32          6.525     17.931   0.364    0.717    
+# childsex1      -23.908     15.216  -1.571    0.121    
+# momrace31       33.755     30.959   1.090    0.280    
+# momrace32       42.294     32.153   1.315    0.193    
+# edu22           11.872     16.379   0.725    0.471    
+# wk_breastmilk    2.034      1.319   1.542    0.128  
+
+summary(lm(nDet ~ matop3 + childsex + momrace3 + edu2 + wk_breastmilk, data = miRNAcomb))
+# Coefficients:
+#               Estimate Std. Error t value Pr(>|t|)    
+# (Intercept)    307.505     36.198   8.495 3.45e-12 ***
+# matop31        -24.385     30.967  -0.787    0.434    
+# matop32         -7.370     16.120  -0.457    0.649    
+# childsex1      -22.610     15.142  -1.493    0.140    
+# momrace31       31.036     31.070   0.999    0.321    
+# momrace32       37.751     32.462   1.163    0.249    
+# edu22            9.100     16.519   0.551    0.584    
+# wk_breastmilk    1.991      1.319   1.509    0.136  
 ```
 
 
@@ -682,7 +736,7 @@ kegg = kegg[order(kegg$X.genes),]
 kegg$KEGG.pathway = factor(kegg$KEGG.pathway, levels = c(kegg$KEGG.pathway))
 
 keggplot = ggplot(kegg, aes(y = KEGG.pathway, x = X.genes)) + geom_segment(x = 0, y = kegg$KEGG.pathway, xend = kegg$X.genes, yend = kegg$KEGG.pathway) + geom_point(aes(fill=p.value), colour="black",pch=21, size=4) + theme_minimal() + 
-  labs(x = 'Number of genes', y = 'KEGG pathway') + scale_fill_continuous(name = expression(~italic('p')~'-value')) + theme(legend.position = 'bottom') + theme(plot.margin = margin(t = 5, r = -10, b = 5, l = 5, unit = "pt")) + scale_x_continuous(lim = c(0,90))
+  labs(x = 'Number of genes', y = 'KEGG pathway') + scale_fill_continuous(name = expression(~italic('FDR'))) + theme(legend.position = 'bottom') + theme(plot.margin = margin(t = 5, r = -10, b = 5, l = 5, unit = "pt")) + scale_x_continuous(lim = c(0,90))
 
 
 keggmiRNAs = read.csv('/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/diana_asthma_microRNAs_pathwayUnion_microRNAs.csv')
@@ -691,12 +745,14 @@ keggmiRNAs$pathway[keggmiRNAs$pathway == 'ECM-receptor interaction'] = 'ECM-rece
 keggmiRNAs$pathway[keggmiRNAs$pathway == 'Prion diseases'] = 'Prion diseases*'
 keggmiRNAs$pathway = factor(keggmiRNAs$pathway, levels = c(kegg$KEGG.pathway))
 keggmiRNAs$indvar[keggmiRNAs$indvar == 1] = "#003262"
+keggmiRNAs$miRNA = factor(keggmiRNAs$miRNA, levels = c('miR.30a.3p', 'miR.106b.5p', 'miR.148b.3p', 'miR.191.5p', 'miR.200a.3p', 'miR.29a.5p', 'miR.331.3p', 'miR.324.5p', 'miR.1290'))
 
 # keggmiRNAplot = ggplot(keggmiRNAs, aes(miRNA, pathway)) + geom_tile(aes(fill = factor(indvar)), colour = "white", size = 3) + theme_minimal() + scale_fill_manual(values = c('white', '#003262')) + theme(legend.position = "none") + 
 #  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + labs(x = '', y = '') + theme(axis.text.y=element_blank()) + theme(plot.margin = margin(t = 5, r = 5, b = 17, l = 5, unit = "pt"))
 
 keggmiRNAplot2 = ggplot(keggmiRNAs, aes(miRNA, pathway)) + geom_point(color = keggmiRNAs$indvar, size = 5, shape = 15) + theme_minimal() + 
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + labs(x = '', y = '') + theme(axis.text.y=element_blank()) + theme(plot.margin = margin(t = 5.1, r = 5, b = 16.2, l = 0, unit = "pt"))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + labs(x = '', y = '') + theme(axis.text.y=element_blank()) + theme(plot.margin = margin(t = 5.1, r = 5, b = 14.9, l = 0, unit = "pt")) + 
+  scale_x_discrete(labels = c('miR-30a-3p','miR-106b-5p','miR-148b-3p', 'miR-191-5p', 'miR-200a-3p', 'miR-29a-5p', 'miR-331-3p', 'miR-324-5p', 'miR-1290'))
 
 grid.arrange(keggplot, keggmiRNAplot2, ncol = 2, widths = c(2,1))
 
@@ -1022,5 +1078,6 @@ sigAtopAdj_lt12_inact = sigAtopAdj_lt12_inact[order(sigAtopAdj_lt12_inact$p_inac
 write.csv(atopAdj_lt12, file = '/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/atopyAdj_lt12.csv')
 ```
 
-
+invbwt("mrtalwwwnnpwyIy   nced  wyMmmt lael'   $oa  eeleae aawoo
+       osoma ")
 
