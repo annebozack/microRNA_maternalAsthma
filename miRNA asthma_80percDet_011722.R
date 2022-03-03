@@ -433,7 +433,7 @@ p = ggplot(df_pcaPlot, aes(PC, indVar)) + geom_tile(aes(fill = fill), colour = "
   scale_y_discrete(labels = c('Maternal atopy', 'Maternal asthma', 'Week of breast milk collection', 'Maternal education', 'Maternal race', 'Infant sex')) + 
   geom_text(aes(label = p_point), color = 'white', size = 3)
 
-p
+p + labs(caption = "** p<0.05; * p<0.10                                                        ") + theme(plot.caption = element_text(size = 10))
 # quartz.save(file = '/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/pcaplot.pdf', type = 'pdf', dpi = 300)
 # quartz.save(file = '/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/pcaplot.png', type = 'png', dpi = 300)
 ```
@@ -1077,7 +1077,4 @@ sigAtopAdj_lt12_inact = sigAtopAdj_lt12_inact[order(sigAtopAdj_lt12_inact$p_inac
 # saving results
 write.csv(atopAdj_lt12, file = '/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/atopyAdj_lt12.csv')
 ```
-
-invbwt("mrtalwwwnnpwyIy   nced  wyMmmt lael'   $oa  eeleae aawoo
-       osoma ")
 

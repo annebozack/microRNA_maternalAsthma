@@ -1078,6 +1078,3 @@ sigAtopAdj_lt12_inact = sigAtopAdj_lt12_inact[order(sigAtopAdj_lt12_inact$p_inac
 write.csv(atopAdj_lt12, file = '/Users/annebozack/Documents/Lee/miRNA asthma/manuscript/clinical epigenetics submission/atopyAdj_lt12.csv')
 ```
 
-invbwt("mrtalwwwnnpwyIy   nced  wyMmmt lael'   $oa  eeleae aawoo
-       osoma ")
-
